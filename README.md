@@ -18,7 +18,7 @@ pip install -r requirements.txt
   - Rename the file to raw_transactions.csv
   - Move the file to data/amlworld/raw_data/
 - Berka
-  - Get the Berka dataset from the by following [this link](https://web.archive.org/web/20070214120527/http://lisp.vse.cz/pkdd99/DATA/data_berka.zip).
+  - Get the Berka dataset by following [this link](https://web.archive.org/web/20070214120527/http://lisp.vse.cz/pkdd99/DATA/data_berka.zip).
   - Extract the account.asc and trans.asc files and rename them raw_accounts.csv and raw_transactions.csv respectively.
   - Move the files to data/berka/raw_data/
 - Rebobank:
