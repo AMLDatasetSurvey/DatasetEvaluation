@@ -4,12 +4,12 @@ import matplotlib.pyplot as plt
 import pandas
 
 import datasets
-from experiments.datasets import BerkaPlusInfo
+from src.experiments.datasets import BerkaPlusInfo
 
 DATASET_STATS_VISUALIZATION_DIR = './visualization/dataset_stats/'
 DATASET_STATS_RESULTS_DIR = './results/dataset_stats/'
 
-def draw_scatter_plot(x, y, x_label, y_label, title, log1=False, log2=False, color='blue', mini_fig1_data=None, mini_fig2_data=None):
+def draw_scatter_plot(x, y, x_label, y_label, title, log1=False, log2=False, color='blue'):
     plt.rc('font', weight='bold', family='Arial', size='60')
 
     log1_label = ' (log)' if log1 else ''

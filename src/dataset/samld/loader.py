@@ -15,6 +15,22 @@ PARSED_DATA_DIRECTORY = DATA_DIRECTORY + DATASET_DIRECTORY + 'parsed_data/'
 ACCOUNTS_FILE = 'parsed_accounts.csv'
 TRANSACTIONS_FILE = 'parsed_transactions.csv'
 
+CONVERSION_RATE = {
+  "UK pounds": 0.8778,
+  "Indian rupee": 80.6602,
+  "Albanian lek": 116.2037,
+  "Swiss franc": 0.9688,
+  "Pakistani rupee": 217.1724,
+  "Naira": 422.3858,
+  "Yen": 141.5468,
+  "Euro": 1.0,
+  "Dirham": 3.58,
+  "Mexican Peso": 19.5148,
+  "Turkish lira": 18.09723,
+  "US dollar": 0.9738,
+  "Moroccan dirham": 10.6663
+}
+
 NAMES_FOR_TRANSACTION_DATA = \
     [
         ColumnNameGenerator('Sender_account', 'origin_id'),
@@ -25,13 +41,14 @@ NAMES_FOR_TRANSACTION_DATA = \
     ]
 
 def parse_transaction_data():
-    transactions = pandas.read_csv(RAW_DATA_DIRECTORY + 'raw_transactions.csv', usecols=['Date', 'Sender_account', 'Receiver_account', 'Amount', 'Is_laundering'])
+    transactions = pandas.read_csv(RAW_DATA_DIRECTORY + 'raw_transactions.csv', usecols=['Date', 'Sender_account', 'Receiver_account', 'Amount', 'Is_laundering', 'Payment_currency'])
     ml_transactions = transactions[transactions['Is_laundering'] == 1]
     ml_accounts = set(ml_transactions['Sender_account']) | set(ml_transactions['Receiver_account'])
     all_accounts = set(transactions['Sender_account']) | set(transactions['Receiver_account'])
     non_ml_accounts = all_accounts - ml_accounts
     accounts = pandas.DataFrame({'account_id': list(non_ml_accounts) + list(ml_accounts), 'is_ml': [False] * len(non_ml_accounts) + [True] * len(ml_accounts)})
     transactions['Is_laundering'] = transactions['Is_laundering'].map({1: True, 0: False})
+    transactions['Amount'] = transactions['Amount'] * (1/transactions['Payment_currency'].map(CONVERSION_RATE))
     return accounts, transactions
 
 
