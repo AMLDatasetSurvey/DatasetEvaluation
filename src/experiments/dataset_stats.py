@@ -1,7 +1,7 @@
 import pandas
 import tqdm
 
-import datasets
+import src.experiments.datasets
 
 PARSED_TRANSACTIONS_FILE = 'parsed_transactions.csv'
 PARSED_ACCOUNTS_FILE = 'parsed_accounts.csv'
@@ -32,7 +32,7 @@ def count_in_out_stats(dataset):
     return pandas.DataFrame({'account_id': dataset.accounts['account_id'], 'in_degree': in_degree, 'out_degree': out_degree, 'unique_in_degree': unique_in_degree, 'unique_out_degree': unique_out_degree, 'in_strength': in_strength, 'out_strength': out_strength, 'is_ml': (dataset.accounts['is_ml'].to_list() if 'is_ml' in dataset.accounts.columns else [False] * len(dataset.accounts))}).sort_values(by='is_ml')
 
 def main():
-    for dataset in datasets.get_datasets():
+    for dataset in src.experiments.datasets.get_datasets():
         print('Calculating out/in degree stats for ' + dataset.info.name)
         degree_stats = count_in_out_stats(dataset)
         degree_stats.to_csv(DATASET_STATS_RESULTS_DIR + dataset.info.name + '_stats.csv', index=False)

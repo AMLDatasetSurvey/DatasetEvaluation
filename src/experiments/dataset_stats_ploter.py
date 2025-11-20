@@ -3,7 +3,7 @@ import re
 import matplotlib.pyplot as plt
 import pandas
 
-import datasets
+import src.experiments.datasets
 from src.experiments.datasets import BerkaPlusInfo
 
 DATASET_STATS_VISUALIZATION_DIR = './visualization/dataset_stats/'
@@ -59,7 +59,7 @@ def draw_line_plot(x_ticks, y, x_label, y_label, title, log=False):
 
 
 def main():
-    for dataset_info in datasets.get_datasets_info():
+    for dataset_info in src.experiments.datasets.get_datasets_info():
         dataset_stats = pandas.read_csv(DATASET_STATS_RESULTS_DIR + dataset_info.name + '_stats.csv').sample(frac=1)
 
         dataset_stats = dataset_stats.sort_values(by='is_ml', ascending=False)

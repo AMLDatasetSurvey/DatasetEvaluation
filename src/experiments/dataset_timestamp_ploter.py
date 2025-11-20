@@ -5,7 +5,7 @@ import pandas
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 
-from experiments.datasets import AMLSim1mInfo, BerkaPlusInfo, AMLWorldInfo, SAMLDInfo, Dataset
+from src.experiments.datasets import AMLSim1mInfo, BerkaPlusInfo, AMLWorldInfo, SAMLDInfo, Dataset
 
 
 def timegaps(lst):
