@@ -1,9 +1,10 @@
+import json
 import os
 
 import numpy as np
 import pandas
 from sklearn.metrics import average_precision_score, confusion_matrix, f1_score, precision_recall_curve, precision_score, recall_score, roc_auc_score
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, train_test_split
 from xgboost import XGBClassifier
 
 from src.experiments.datasets import BerkaPlusInfo, RaboPlusInfo, get_datasets_info
@@ -16,6 +17,7 @@ FEATURES = ['in_degree', 'out_degree', 'unique_in_degree', 'unique_out_degree', 
 UNLABELED_DATASETS = {RaboPlusInfo.name, BerkaPlusInfo.name}
 
 N_FOLDS = 5
+VAL_SIZE = 0.2
 RANDOM_STATE = 42
 
 DATASET_LABELS = {
@@ -53,14 +55,23 @@ def cross_validate(X, y):
 
     skf = StratifiedKFold(n_splits=N_FOLDS, shuffle=True, random_state=RANDOM_STATE)
     fold_rows = []
+    xgb_config = None
 
     for fold_idx, (train_idx, test_idx) in enumerate(skf.split(X, y)):
         X_train, X_test = X[train_idx], X[test_idx]
         y_train, y_test = y[train_idx], y[test_idx]
 
-        clf.fit(X_train, y_train)
+        X_fit, X_val, y_fit, y_val = train_test_split(
+            X_train, y_train,
+            test_size=VAL_SIZE, stratify=y_train, random_state=RANDOM_STATE,
+        )
 
-        threshold = best_f1_threshold(y_train, clf.predict_proba(X_train)[:, 1])
+        clf.fit(X_fit, y_fit)
+
+        if fold_idx == 0:
+            xgb_config = json.loads(clf.get_booster().save_config())
+
+        threshold = best_f1_threshold(y_val, clf.predict_proba(X_val)[:, 1])
         y_prob_test = clf.predict_proba(X_test)[:, 1]
         y_pred_test = (y_prob_test >= threshold).astype(int)
 
@@ -73,8 +84,10 @@ def cross_validate(X, y):
             'recall': round(float(recall_score(y_test, y_pred_test)), 4),
             'f1': round(float(f1_score(y_test, y_pred_test)), 4),
             'threshold': round(float(threshold), 6),
-            'train_pos': int(y_train.sum()),
-            'train_neg': int(len(y_train) - y_train.sum()),
+            'fit_pos': int(y_fit.sum()),
+            'fit_neg': int(len(y_fit) - y_fit.sum()),
+            'val_pos': int(y_val.sum()),
+            'val_neg': int(len(y_val) - y_val.sum()),
             'test_pos': int(y_test.sum()),
             'test_neg': int(len(y_test) - y_test.sum()),
             'tp': int(tp),
@@ -86,7 +99,7 @@ def cross_validate(X, y):
     metric_keys = ['auc', 'avg_precision', 'precision', 'recall', 'f1']
     means = {k: round(float(np.mean([r[k] for r in fold_rows])), 4) for k in metric_keys}
     stds = {f'{k}_std': round(float(np.std([r[k] for r in fold_rows])), 4) for k in metric_keys}
-    return {**means, **stds}, fold_rows
+    return {**means, **stds}, fold_rows, xgb_config
 
 
 def format_ml_percent(x):
@@ -118,11 +131,12 @@ def write_folds_latex(fold_rows, path):
     header = (
         r'\textbf{Dataset} & \textbf{Fold} & \textbf{AUC} & \textbf{AP} & '
         r'\textbf{P} & \textbf{R} & \textbf{F1} & \textbf{Thr} & '
-        r'\textbf{Train+} & \textbf{Train-} & \textbf{Test+} & \textbf{Test-} & '
+        r'\textbf{Fit+} & \textbf{Fit-} & \textbf{Val+} & \textbf{Val-} & '
+        r'\textbf{Test+} & \textbf{Test-} & '
         r'\textbf{TP} & \textbf{TN} & \textbf{FP} & \textbf{FN} \\'
     )
     lines = [
-        r'\begin{tabular}{llcccccccrrrrrrrr}',
+        r'\begin{tabular}{llcccccccrrrrrrrrrr}',
         r'\toprule',
         header,
         r'\midrule',
@@ -137,7 +151,8 @@ def write_folds_latex(fold_rows, path):
             f'${r["auc"]:.3f}$ & ${r["avg_precision"]:.3f}$ & '
             f'${r["precision"]:.3f}$ & ${r["recall"]:.3f}$ & ${r["f1"]:.3f}$ & '
             f'${r["threshold"]:.3f}$ & '
-            f'{r["train_pos"]} & {r["train_neg"]} & {r["test_pos"]} & {r["test_neg"]} & '
+            f'{r["fit_pos"]} & {r["fit_neg"]} & {r["val_pos"]} & {r["val_neg"]} & '
+            f'{r["test_pos"]} & {r["test_neg"]} & '
             f'{r["tp"]} & {r["tn"]} & {r["fp"]} & {r["fn"]} \\\\'
         )
         prev_dataset = r['dataset']
@@ -161,15 +176,20 @@ def main():
         ml_prevalence = y.mean()
 
         print(f'\n{dataset_info.name}  (ML prevalence: {ml_prevalence:.2%})')
-        scores, fold_rows = cross_validate(X, y)
+        scores, fold_rows, xgb_config = cross_validate(X, y)
         rows.append({'dataset': dataset_info.name, 'ml_prevalence': round(ml_prevalence, 4), **scores})
         for r in fold_rows:
             fold_rows_all.append({'dataset': dataset_info.name, **r})
+
+        config_path = DIFFICULTY_RESULTS_DIR + f'{dataset_info.name}_xgb_config.json'
+        with open(config_path, 'w') as f:
+            json.dump(xgb_config, f, indent=2)
+        print(f'  XGBoost config saved to {config_path}')
         print(f'  AUC={scores["auc"]:.4f}±{scores["auc_std"]:.4f}  AP={scores["avg_precision"]:.4f}±{scores["avg_precision_std"]:.4f}'
               f'  P={scores["precision"]:.4f}±{scores["precision_std"]:.4f}  R={scores["recall"]:.4f}±{scores["recall_std"]:.4f}  F1={scores["f1"]:.4f}±{scores["f1_std"]:.4f}')
         for r in fold_rows:
             print(f'  fold {r["fold"]}: AUC={r["auc"]:.4f}  AP={r["avg_precision"]:.4f}  F1={r["f1"]:.4f}  thr={r["threshold"]:.4f}'
-                  f'  train(+/-)={r["train_pos"]}/{r["train_neg"]}  test(+/-)={r["test_pos"]}/{r["test_neg"]}'
+                  f'  fit(+/-)={r["fit_pos"]}/{r["fit_neg"]}  val(+/-)={r["val_pos"]}/{r["val_neg"]}  test(+/-)={r["test_pos"]}/{r["test_neg"]}'
                   f'  TP={r["tp"]} TN={r["tn"]} FP={r["fp"]} FN={r["fn"]}')
 
     results = pandas.DataFrame(rows)

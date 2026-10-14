@@ -20,8 +20,8 @@ def count_in_out_stats(dataset):
         received = dataset.transactions_by_target.loc[[account_id]] if account_id in dataset.transactions_by_target.index else empty_dataframe
         sent = dataset.transactions_by_origin.loc[[account_id]] if account_id in dataset.transactions_by_origin.index else empty_dataframe
 
-        in_degree.append(len(received))
-        out_degree.append(len(sent))
+        in_degree.append(int(received['count'].sum()) if 'count' in received.columns else len(received))
+        out_degree.append(int(sent['count'].sum()) if 'count' in sent.columns else len(sent))
 
         in_strength.append(received['amount'].sum())
         out_strength.append(sent['amount'].sum())
